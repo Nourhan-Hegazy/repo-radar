@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alert, CircularProgress, Container, Typography } from "@mui/material";
+import type { SearchResponse } from "./types/github";
 
 function App() {
   const [status, setStatus] = useState("loading");
@@ -8,15 +9,14 @@ function App() {
     const run = async () => {
       try {
         const res = await fetch(
-          "https://api.github.com/search/repositories?q=react&per_page=5",
+          "https://api.github.com/search/repositories?q=react&per_page=5&sort=stars&order=desc",
         );
 
-        // fetch does NOT throw on 404/403 — we must check ourselves
         if (!res.ok) {
           throw new Error(`GitHub API error: ${res.status}`);
         }
 
-        const data = await res.json();
+        const data = (await res.json()) as SearchResponse;
 
         console.log("--- FULL RESPONSE ---", data);
         console.log("Total results:", data.total_count);
