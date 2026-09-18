@@ -10,6 +10,7 @@ export interface GitHubRepo {
 
 export interface SearchResponse {
   total_count: number;
-  incomplete_results: boolean;
   items: GitHubRepo[];
 }
+
+export type Status = "idle" | "loading" | "success" | "error";
