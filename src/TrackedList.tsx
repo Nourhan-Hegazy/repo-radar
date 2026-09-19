@@ -1,11 +1,18 @@
-import { Alert, Box, Button } from "@mui/material";
+import { Alert, Box, Button, CircularProgress } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useRepoStore } from "./store";
 import { TrackedRepoCard } from "./TrackedRepoCard";
+import { StarsChart } from "./StarsChart";
 
 export function TrackedList() {
   const trackedNames = useRepoStore((state) => state.trackedNames);
   const refreshAll = useRepoStore((state) => state.refreshAll);
+  const repoData = useRepoStore((state) => state.repoData);
+
+  // .some() — an array method that returns true if at least one item passes the test
+  const isRefreshing = trackedNames.some(
+    (fullName) => repoData[fullName]?.status === "loading",
+  );
 
   if (trackedNames.length === 0) {
     return (
@@ -21,12 +28,17 @@ export function TrackedList() {
       <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
         <Button
           variant="outlined"
-          startIcon={<RefreshIcon />}
+          startIcon={
+            isRefreshing ? <CircularProgress size={16} /> : <RefreshIcon />
+          }
           onClick={() => refreshAll()}
+          disabled={isRefreshing}
         >
-          Refresh all
+          {isRefreshing ? "Refreshing…" : "Refresh All"}
         </Button>
       </Box>
+
+      <StarsChart />
 
       {trackedNames.map((fullName) => (
         <TrackedRepoCard key={fullName} fullName={fullName} />
