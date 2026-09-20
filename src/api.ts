@@ -2,8 +2,9 @@ import type { GitHubRepo, SearchResponse } from "./types";
 
 const BASE_URL = "https://api.github.com";
 
+//centralized error handling
 function checkResponse(res: Response) {
-  if (res.ok) return;
+  if (res.ok) return; //true for status 200–299
 
   if (res.status === 403 || res.status === 429) {
     throw new Error(
@@ -31,6 +32,7 @@ per_page=10 — return 10 results.
   return data.items;
 }
 
+//gets fresh details for one repo (used for refreshing tracked repos)
 export async function fetchRepo(fullName: string): Promise<GitHubRepo> {
   const res = await fetch(`${BASE_URL}/repos/${fullName}`);
   checkResponse(res);

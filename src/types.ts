@@ -13,4 +13,6 @@ export interface SearchResponse {
   items: GitHubRepo[];
 }
 
+// Status represents the current state of a repository fetch operation.
+//this is how they are returned by the github API
 export type Status = "idle" | "loading" | "success" | "error";
