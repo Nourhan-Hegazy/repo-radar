@@ -1,219 +1,150 @@
 # Repo Radar
 
-A dashboard for searching GitHub repositories, tracking favourites, and monitoring
-their latest stats.
+Repo Radar is a small dashboard for searching GitHub repositories and keeping an
+eye on the ones you care about. Search for a repo, add it to your tracked list,
+and the app shows its stars, open issues, and when it was last updated — with a
+quick bar chart comparing stars across everything you track.
 
-**Live demo:** https://YOUR-APP.vercel.app
-**Repository:** https://github.com/Nourhan-Hegazy/repo-radar
+- **Live demo:** https://repo-radar-smoky.vercel.app/
+- **Repository:** https://github.com/Nourhan-Hegazy/repo-radar
 
----
+## What it does
 
-## Tech stack
+- Search GitHub repositories as you type (the input is debounced by 400 ms so it
+  isn't firing a request on every keystroke).
+- Track and untrack repositories with one click.
+- A separate "Tracked" tab that lists everything you're following.
+- For each tracked repo: stars, open issues, and last-updated date.
+- Refresh a single repo, or refresh all tracked repos at once.
+- Each tracked card loads and fails on its own — one repo erroring doesn't take
+  the others down.
+- Your tracked list is saved to `localStorage`, so it survives a page reload.
+- A bar chart of stars across your tracked repos.
 
-| Concern          | Choice                              |
-| ---------------- | ----------------------------------- |
-| Framework        | React 19 + TypeScript               |
-| Build tool       | Vite                                |
-| State management | Zustand (with `persist` middleware) |
-| UI components    | MUI (Material UI)                   |
-| Charts           | MUI X Charts                        |
-| Data source      | GitHub REST API (`api.github.com`)  |
-| Hosting          | Vercel                              |
+## Getting started
 
----
-
-## Setup
+You'll need Node.js installed. i installed version 24.21, Then:
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/repo-radar.git
+git clone https://github.com/Nourhan-Hegazy/repo-radar.git
 cd repo-radar
 npm install
 npm run dev
 ```
 
-The app runs at `http://localhost:5173`.
+The dev server runs at http://localhost:5173. It serves the app with hot module
+replacement, so saved changes show up in the browser instantly without a full
+reload.
+
+Other scripts needed:
 
 ```bash
-npm run build     # type-check + production build
-npm run preview   # serve the production build locally
-npm run lint      # ESLint
+npm run dev       # start the dev server at http://localhost:5173
+npm run build     # type-check and build for production
+npm test          # run the test suite (Vitest)
 ```
 
-No environment variables are required — the app uses the unauthenticated GitHub API.
+## Tech stack
 
----
+- **React 19 + TypeScript** for the UI.
+- **Vite** for the dev server and build.
+- **Zustand** (with its `persist` middleware) for state and localStorage.
+- **MUI** for components, and **MUI X Charts** for the stars chart.
+- **GitHub REST API** as the data source.
+- **Vitest** + Testing Library for tests.
 
-## Features
-
-- Debounced repository search (400 ms)
-- Track / untrack repositories
-- Dedicated Tracked Repos view
-- Stars, open issues and last commit date per repository
-- Refresh a single repository or all tracked repositories
-- Independent loading and error state for every tracked repository
-- Tracked repositories persisted to `localStorage`
-- Bar chart of stars across tracked repositories
-- Fully typed — no `any` in application code
-
----
-
-## Architecture
+## How it's put together
 
 ```
 src/
-├── types.ts              Shared TypeScript types
-├── api.ts                GitHub REST calls + HTTP error translation
-├── store.ts              Zustand store: tracking, persistence, refresh
-├── useDebounce.ts        Debounce hook
-├── RepoCard.tsx          Search result + track toggle
-├── TrackedRepoCard.tsx   Tracked repo: own stats, loading and error state
-├── TrackedList.tsx       Tracked view + "Refresh all"
-├── StarsChart.tsx        Bar chart derived from the store
-├── App.tsx               Tabs, search state, layout
-└── main.tsx              Entry point, theme, CssBaseline
+├── types.ts              Shared types
+├── api.ts                GitHub calls + turning HTTP errors into messages
+├── store.ts              Zustand store: tracking, persistence, refreshing
+├── useDebounce.ts        The debounce hook
+├── RepoCard.tsx          A search result with a track/untrack button
+├── TrackedRepoCard.tsx   A tracked repo with its own stats and error state
+├── TrackedList.tsx       The tracked view + "Refresh all"
+├── StarsChart.tsx        The stars bar chart, derived from the store
+├── App.tsx               Tabs, search box, layout
+└── main.tsx              Entry point, theme setup
 ```
 
-**Layering rule:** `api.ts` contains no React. Components contain no `fetch`.
-The store is the only bridge between them. This keeps the data layer independently
-reusable and testable.
+## A few decisions worth explaining
 
-**Structure is deliberately flat.** With one store and eight components, nested
-feature folders would add navigation cost without adding clarity. The structure is
-sized to the app.
+**Why Zustand instead of Redux.** The app has one thing to manage (the tracked
+repos) and four actions. Redux Toolkit's slices and boilerplate would be a lot of
+extra setup for that. Zustand is tiny and its `persist` middleware handles the
+localStorage requirement for free. If the app grew a real caching layer — say it
+had to fetch, cache, and re-sync data from many different endpoints — then a
+dedicated data-fetching library would start to pay off: **RTK Query** (part of
+Redux Toolkit) or **TanStack Query** (a standalone library, not tied to Redux).
 
----
-
-## Technical decisions
-
-### Zustand over Redux Toolkit
-
-The app has one domain (tracked repositories) and four actions. RTK's slices,
-reducers and middleware would add boilerplate without solving a problem this app
-has. Zustand also ships `persist`, which covers the localStorage requirement
-directly. RTK Query would be the stronger choice if the app grew a real caching
-layer across many endpoints.
-
-### Separating user intent from server data
-
-The store holds two distinct things:
+**The list vs. live data.** The store keeps these two apart:
 
 ```ts
-trackedNames: string[]                     // persisted
-repoData: Record<string, RepoState>        // never persisted
+trackedNames: string[]                 // saved to localStorage
+repoData: Record<string, RepoState>    // never saved
 ```
 
-`trackedNames` is **user intent** — small, stable, safe to persist.
-`repoData` is **server truth** — star counts and issue counts go stale within
-minutes, so caching them would show users incorrect numbers on load.
+`trackedNames` is the intent — small and stable, fine to persist. `repoData` is
+live data like star counts, which goes stale within minutes. Persisting it would
+show wrong numbers on load, so the app only saves your list and refetches the
+stats when it starts up.
 
-`partialize` therefore writes only `trackedNames` to localStorage, and the app
-refetches all stats on mount. The API remains the source of truth for data;
-localStorage only remembers what the user chose.
+**No global loading flag.** Each repo carries its own status and error, so
+refreshing one card re-renders only that card. A failed refresh keeps the old
+data on screen next to the error, so a temporary blip doesn't wipe the card.
 
-### Normalized state keyed by full name
+**Refresh-all uses `Promise.allSettled`.** Refreshes run in parallel, and one
+repo failing (deleted, renamed, rate-limited) won't abort the rest. `Promise.all`
+would bail on the first error.
 
-`repoData` is a `Record<string, RepoState>` rather than an array:
+**Stale searches are ignored.** Each search effect flips a `cancelled` flag on
+cleanup, so a slow response from an old query can't overwrite a newer one.
 
-- O(1) lookup and update by repository
-- Updating one repository cannot touch another
-- Duplicates are impossible by construction
+**Error handling lives in one place.** `fetch` doesn't throw on 4xx/5xx, so
+`api.ts` checks `res.ok` and translates status codes into readable messages
+(rate limit, not found, and so on). Components just show `error.message`.
 
-`trackedNames` preserves display order; the record holds the data.
+## Seeing the error states
 
-### Per-repository async state
+Both error paths are handled centrally in `api.ts` and shown per-card, so you
+can try them out yourself:
 
-There is no global `isLoading` flag anywhere in the app. Each entry carries its
-own `status` and `error`:
+**Hitting the GitHub rate limit.** The unauthenticated search endpoint allows
+about 10 requests a minute, per IP. Every settled query sends one request, so
+firing off many _different_ searches in quick succession trips that limit fairly
+easily. The search box is debounced by 400 ms, so ordinary typing costs one
+request per word, not one per keystroke — to reach the limit on purpose, type
+several distinct queries fast within a minute.
 
-```ts
-interface RepoState {
-  status: "idle" | "loading" | "success" | "error";
-  error: string;
-  repo: GitHubRepo | null;
-}
-```
+Once GitHub returns `403`/`429`, `api.ts` turns it into "GitHub rate limit
+reached. Please wait a minute and try again.", and the search results area shows
+that message in place of the list. It clears on the next successful search once
+the limit resets.
 
-Each card subscribes only to its own slice via a Zustand selector, so refreshing
-one repository re-renders exactly one card. The requirement for independent
-loading and error states is satisfied by the _shape of the state_, not by extra
-UI logic.
-
-A failed refresh keeps the previously fetched data visible alongside the error,
-so a transient failure does not blank the card.
-
-### Derived state over stored state
-
-Values that can be computed are computed, never stored:
-
-- The chart is a pure projection of the store — it holds no state
-- "Is anything refreshing?" is derived from the per-repo statuses
-- The search idle state is derived from the query length
-
-This removes an entire class of synchronisation bugs.
-
-### `Promise.allSettled` for "Refresh all"
-
-Refreshes run in parallel and are collected with `allSettled`, so one failing
-repository (deleted, renamed, rate-limited) cannot abort the batch. `Promise.all`
-would reject on the first failure and leave the rest in an indeterminate state.
-
-### Last commit date via `pushed_at`
-
-`GET /repos/{owner}/{repo}` returns `pushed_at` in the same response as stars and
-open issues. Using `GET /commits?per_page=1` would give the exact last commit on
-the default branch but would double the number of requests per refresh, against a
-60 requests/hour unauthenticated budget.
-
-`pushed_at` reflects a push to _any_ branch, which is a small accuracy trade-off
-accepted in exchange for halving API usage. The UI labels it "Updated" rather than
-"Last commit" to stay honest about what is displayed.
-
-### Stale-response handling
-
-Each search effect uses a `cancelled` flag in its cleanup function, so a slow
-response from an earlier query cannot overwrite results from a newer one.
-`AbortController` would additionally cancel the in-flight request; the flag was
-chosen for simplicity, and the user-visible behaviour is identical.
-
-### Centralised error translation
-
-All HTTP error handling lives in `api.ts`. `fetch` does not reject on 4xx/5xx
-responses, so `res.ok` is checked explicitly and status codes are converted into
-user-facing messages (403/429 → rate limit, 404 → not found) in one place.
-Components display `error.message` without knowing anything about HTTP.
-
----
+**A tracked repo that no longer exists.** If a repo you're tracking gets deleted, GitHub responds with `404` on the next refresh. `api.ts` maps that to
+"Repository not found.", and the tracked card shows it in a red alert while
+keeping any previously loaded stats visible underneath.
 
 ## Assumptions and limitations
 
-- **Unauthenticated API.** Limits are 10 search requests/minute and 60 core
-  requests/hour per IP. A token was deliberately not used: any token shipped in a
-  frontend bundle is publicly readable. A production version would proxy requests
-  through a small backend that holds the token server-side.
-- **Rate limiting is surfaced, not avoided.** The 400 ms debounce and GitHub's
-  `Cache-Control: max-age=60` on unauthenticated responses keep normal usage well
-  inside the limits; if a limit is hit, the user sees an explanatory message.
-- **Responses are typed by assertion, not validated.** `res.json() as T` trusts the
-  API shape. Runtime validation (e.g. Zod) at the API boundary would be the
-  production approach; omitted here given the time-box.
-- **`full_name` is the store key.** It is unique, human-readable and maps directly
-  to `/repos/{owner}/{repo}`. If a repository is renamed the key becomes stale
-  (GitHub redirects, so data still loads under the old name). The numeric `id`
-  is immutable but less convenient.
-- **Search returns the top 10 results** sorted by stars. No pagination.
-- **No tests.** With more time: unit tests for the store actions (pure, easy to
-  test) and integration tests for the search flow with a mocked API.
-- **Refreshing all tracked repos issues one request per repository.** Acceptable at
-  this scale; conditional requests using `ETag` would reduce quota usage.
+- **It uses the unauthenticated GitHub API.** That means roughly 10 searches a
+  minute and 60 other requests an hour, per IP. No token is included on purpose —
+  any token shipped in a frontend bundle is readable by anyone. A production
+  version would proxy requests through a small backend that holds the token.
+- **Rate limits are shown, not hidden.** The debounce and GitHub's short cache
+  keep normal use well within the limits, but if you do hit one, you'll see a
+  message explaining what happened.
+- **API responses are trusted, not validated.** to keep things small.
+- **Search shows the top 10 results** by stars. No pagination.
 
----
+## Tests
 
-## Possible improvements
+I added some unit tests to make sure my code is reliable.
+There's a Vitest suite covering the store actions, the API layer (with `fetch`
+mocked), and the `RepoCard` component. Run it with:
 
-- Replace hand-rolled fetching with TanStack Query for caching, retries and
-  background revalidation
-- Runtime response validation with Zod
-- Light/dark theme toggle
-- Additional charts (open issues, activity over time)
-- Storybook for the component library
-- ETag-based conditional requests to reduce rate limit consumption
+```bash
+npm test
+```
