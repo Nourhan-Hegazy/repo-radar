@@ -34,6 +34,7 @@ function App() {
   //trackedCount — a selector reading just the number of tracked repos (for the tab label). Re-renders App only when the count changes.
   const trackedCount = useRepoStore((state) => state.trackedNames.length);
 
+  //computed on each render from existing state
   const debouncedQuery = useDebounce(query);
   const trimmedQuery = debouncedQuery.trim(); //remove leading/trailing spaces ("  react  " → "react").
   const isTooShort = trimmedQuery.length < 2;
@@ -41,8 +42,9 @@ function App() {
   // Stats are not persisted, so refetch everything once on load.
   useEffect(() => {
     void useRepoStore.getState().refreshAll();
-  }, []); //The [] dependency array means this effect runs once, right after the app first mounts.
+  }, []); //The [] dependency array means this effect runs once, right after the app first mounts.refresh all tracked on startup
 
+  // run the search
   useEffect(() => {
     //if the query is too short, return early — don't call GitHub
     if (isTooShort) return;
@@ -65,12 +67,12 @@ function App() {
       }
     };
 
-    run(); //run(); — actually start the async function
+    run(); //run(); — actually start the async function because effects can't directly call async functions
     return () => {
       //effect cleanup: mark the request as cancelled to prevent state updates after unmounting or query change
       cancelled = true;
     };
-  }, [trimmedQuery, isTooShort]); //re-run whenever the settled query (or the too-short flag) changes
+  }, [trimmedQuery, isTooShort]); //re-run whenever the settled query (or the too-short flag) changes (whenever the debounced query changes)
 
   const { status, repos, error } = isTooShort ? IDLE : search; //Pick which state to actually display: if the query is too short, always show IDLE; otherwise show the real search state
 
@@ -86,6 +88,10 @@ function App() {
 <Tab label="Search" /> — first tab (index 0).
 <Tab label={`Tracked (${trackedCount})`} /> — second tab (index 1), whose label shows the live count
 */
+
+    // repos.map(...) transforms the array of repos into an array of <RepoCard> elements
+
+    //onChange =... :  _ ignores the event argument; next is the new tab index
     <>
       <AppBar position="static">
         <Toolbar>
@@ -135,6 +141,7 @@ function App() {
             {status === "success" && repos.length > 0 && (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {repos.map((repo) => (
+                  //unique key per list item to efficiently track/update/reorder them
                   <RepoCard key={repo.id} repo={repo} />
                 ))}
               </Box>

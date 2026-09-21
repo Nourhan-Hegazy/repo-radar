@@ -23,14 +23,16 @@ interface TrackedRepoCardProps {
 }
 
 export function TrackedRepoCard({ fullName }: TrackedRepoCardProps) {
-  const entry = useRepoStore((state) => state.repoData[fullName]);
+  const entry = useRepoStore((state) => state.repoData[fullName]); //live entry
   const refreshOne = useRepoStore((state) => state.refreshOne);
   const untrack = useRepoStore((state) => state.untrack);
 
   const status = entry?.status ?? "idle";
-  const repo = entry?.repo ?? null;
+  const repo = entry?.repo ?? null; //?. avoids crashing if the entry is missing
   const isLoading = status === "loading";
 
+  //last element: "If we have no repo data yet and we're currently loading, show the text 'Loading stats…'."
+  ///refresh button and untrack button
   return (
     //disabled={isLoading} — can't click while it's already refreshing
     <Card variant="outlined">

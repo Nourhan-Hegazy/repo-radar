@@ -36,6 +36,7 @@ export function RepoCard({ repo }: RepoCardProps) {
   return (
     //a card with a thin border, CardContent adds internal padding
     //target="_blank" — open in a new tab
+    //noopener prevents the new page from accessing the window tab
     //chip -> a small pill shaped component used to display metadata like stars, issues, and last updated date
     // this pushes its two children to opposite ends: the repo link on the left, the star button on the right.
     //<Tooltip title={...}> — shows "Untrack" or "Track" on hover

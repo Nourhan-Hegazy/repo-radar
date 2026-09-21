@@ -10,6 +10,7 @@ export function TrackedList() {
   const repoData = useRepoStore((state) => state.repoData);
 
   // .some() — an array method that returns true if at least one item passes the test
+  //used to disable the "Refresh All" button and show a spinner
   const isRefreshing = trackedNames.some(
     (fullName) => repoData[fullName]?.status === "loading",
   );
